@@ -26,13 +26,8 @@ app.get('/', (req, res) => {
   res.send('API Mc Molato en marche...');
 });
 
-// IMPORTANT POUR VERCEL : 
-// Si on est en local, on lance app.listen(). Si on est sur Vercel, on exporte l'application 'app'.
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-  });
-}
-
-module.exports = app;
+// LANCEMENT DU SERVEUR POUR RENDER ET LOCAL
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+});
