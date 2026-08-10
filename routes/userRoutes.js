@@ -6,8 +6,10 @@ const nodemailer = require('nodemailer');
 const otpStorage = {};
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  family: 4, // <-- Ajouté pour résoudre le timeout réseau et le blocage IPv6 sur Render
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // true pour 465, false pour 587
+  family: 4,     // Force l'IPv4 pour Render
   auth: {
     user: process.env.EMAIL_USER || 'blessingmingenge@gmail.com',
     pass: process.env.EMAIL_PASS || 'pxuw mvfd uyht xrci'
