@@ -7,6 +7,7 @@ const otpStorage = {};
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  family: 4, // <-- Ajouté pour résoudre le timeout réseau et le blocage IPv6 sur Render
   auth: {
     user: process.env.EMAIL_USER || 'blessingmingenge@gmail.com',
     pass: process.env.EMAIL_PASS || 'pxuw mvfd uyht xrci'
