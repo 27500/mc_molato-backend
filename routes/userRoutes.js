@@ -8,8 +8,8 @@ const otpStorage = {};
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false, // true pour 465, false pour 587
-  family: 4,     // Force l'IPv4 pour Render
+  secure: false, // false pour 587, true pour 465
+  family: 4,     // Force l'IPv4 pour contourner les restrictions réseau de Render
   auth: {
     user: process.env.EMAIL_USER || 'blessingmingenge@gmail.com',
     pass: process.env.EMAIL_PASS || 'pxuw mvfd uyht xrci'
