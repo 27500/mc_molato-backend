@@ -1,20 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/userModel'); 
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
+const resend = new Resend(process.env.RESEND_API_KEY);
 const otpStorage = {};
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // false pour 587, true pour 465
-  family: 4,     // Force l'IPv4 pour contourner les restrictions réseau de Render
-  auth: {
-    user: process.env.EMAIL_USER || 'blessingmingenge@gmail.com',
-    pass: process.env.EMAIL_PASS || 'pxuw mvfd uyht xrci'
-  }
-});
 
 // Route d'inscription
 router.post('/register', async (req, res) => {
@@ -46,7 +36,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Route : Envoyer un vrai code OTP par e-mail
+// Route : Envoyer un vrai code OTP par e-mail avec Resend
 router.post('/send-otp', async (req, res) => {
   const { email } = req.body;
 
@@ -63,18 +53,16 @@ router.post('/send-otp', async (req, res) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     otpStorage[email] = code;
 
-    const mailOptions = {
-      from: '"Mc Molato" <' + (process.env.EMAIL_USER || 'blessingmingenge@gmail.com') + '>',
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: email,
       subject: 'Votre code de sécurité OTP - Mc Molato',
       text: `Bonjour ${user.name},\n\nVoici votre code de vérification à usage unique : ${code}\n\nIl est valable pour vous connecter à votre espace Mc Molato.`
-    };
-
-    await transporter.sendMail(mailOptions);
+    });
     
     res.status(200).json({ success: true, message: "Code OTP envoyé avec succès par e-mail." });
   } catch (error) {
-    console.error("Erreur Nodemailer :", error);
+    console.error("Erreur Resend :", error);
     res.status(500).json({ message: "Erreur lors de l'envoi de l'e-mail de vérification." });
   }
 });
