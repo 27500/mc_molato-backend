@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Route : Envoyer un vrai code OTP par e-mail avec Resend
+// Route : Envoyer un vrai code OTP par e-mail avec Resend (Création auto si absent)
 router.post('/send-otp', async (req, res) => {
   const { email } = req.body;
 
@@ -45,9 +45,17 @@ router.post('/send-otp', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "Cet email ne correspond à aucun compte enregistré." });
+      // Création automatique du compte s'il n'existe pas en base
+      user = new User({ 
+        name: email.split('@')[0], 
+        email, 
+        phone: '', 
+        favorites: [], 
+        cart: [] 
+      });
+      await user.save();
     }
 
     const code = Math.floor(1000 + Math.random() * 9000).toString();
