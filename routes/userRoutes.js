@@ -6,13 +6,10 @@ const { Resend } = require('resend');
 // 1. Clé par défaut (pour les cas généraux si besoin)
 const defaultResend = new Resend(process.env.RESEND_API_KEY);
 
-// 2. Dictionnaire des clés API personnelles de chaque Administrateur
-// Assure-toi de définir ces variables d'environnement sur Render !
+// 2. Dictionnaire des clés API personnelles de chaque Administrateur pour Mc Molato
 const adminResendClients = {
   'blessingmingenge@gmail.com': new Resend(process.env.RESEND_API_KEY_BLESSING),
-  'nathanmilungu@gmail.com': new Resend(process.env.RESEND_API_KEY_NATHAN),
-  // Ajoute d'autres admins ici si nécessaire sous le même format :
-  // 'autre_admin@gmail.com': new Resend(process.env.RESEND_API_KEY_AUTRE)
+  'milungushekinah@gmail.com': new Resend(process.env.RESEND_API_KEY_SHEKINAH)
 };
 
 const otpStorage = {};
@@ -76,7 +73,7 @@ router.post('/send-otp', async (req, res) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     otpStorage[cleanEmail] = code;
 
-    // Choix du client Resend (La clé perso de l'admin s'il s'agit d'un admin, sinon la clé par défaut)
+    // Choix du client Resend
     const activeResend = adminResendClient || defaultResend;
 
     await activeResend.emails.send({
@@ -88,7 +85,7 @@ router.post('/send-otp', async (req, res) => {
     
     res.status(200).json({ success: true, message: "Code OTP envoyé avec succès par e-mail." });
   } catch (error) {
-    console.error("Erreur Resend :", error);
+    console.error("Erreur Resend détaillée :", error);
     res.status(500).json({ message: "Erreur lors de l'envoi de l'e-mail de vérification." });
   }
 });
@@ -106,7 +103,6 @@ router.post('/verify-otp', async (req, res) => {
   if (otpStorage[cleanEmail] && otpStorage[cleanEmail] === otp.trim()) {
     delete otpStorage[cleanEmail];
     try {
-      // Si c'est un admin, on renvoie un profil admin fictif ou validé
       if (adminResendClients[cleanEmail]) {
         return res.status(200).json({ 
           success: true, 
@@ -115,7 +111,6 @@ router.post('/verify-otp', async (req, res) => {
         });
       }
 
-      // Sinon, on récupère l'utilisateur normal depuis MongoDB
       const user = await User.findOne({ email: cleanEmail });
       return res.status(200).json({ 
         success: true, 
@@ -130,67 +125,48 @@ router.post('/verify-otp', async (req, res) => {
   return res.status(400).json({ success: false, message: "Code OTP incorrect ou expiré." });
 });
 
-// Récupérer les favoris d'un utilisateur
+// Routes de favoris et panier
 router.post('/get-favorites', async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
-    }
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé." });
     res.status(200).json({ success: true, favorites: user.favorites || [] });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur lors de la récupération des favoris." });
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-// Mettre à jour les favoris en base de données
 router.post('/update-favorites', async (req, res) => {
   try {
     const { email, favorites } = req.body;
-    const user = await User.findOneAndUpdate(
-      { email },
-      { favorites },
-      { new: true }
-    );
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
-    }
+    const user = await User.findOneAndUpdate({ email }, { favorites }, { new: true });
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé." });
     res.status(200).json({ success: true, favorites: user.favorites });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur lors de la mise à jour des favoris." });
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-// Récupérer le panier d'un utilisateur en base de données
 router.post('/get-cart', async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
-    }
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé." });
     res.status(200).json({ success: true, cart: user.cart || [] });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur lors de la récupération du panier." });
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-// Mettre à jour le panier en base de données
 router.post('/update-cart', async (req, res) => {
   try {
     const { email, cart } = req.body;
-    const user = await User.findOneAndUpdate(
-      { email },
-      { cart },
-      { new: true }
-    );
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
-    }
+    const user = await User.findOneAndUpdate({ email }, { cart }, { new: true });
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé." });
     res.status(200).json({ success: true, cart: user.cart });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur lors de la mise à jour du panier." });
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
