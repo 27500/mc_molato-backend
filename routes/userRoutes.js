@@ -3,7 +3,18 @@ const router = express.Router();
 const User = require('../models/userModel'); 
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// 1. Clé par défaut (pour les cas généraux si besoin)
+const defaultResend = new Resend(process.env.RESEND_API_KEY);
+
+// 2. Dictionnaire des clés API personnelles de chaque Administrateur
+// Assure-toi de définir ces variables d'environnement sur Render !
+const adminResendClients = {
+  'blessingmingenge@gmail.com': new Resend(process.env.RESEND_API_KEY_BLESSING),
+  'nathanmilungu@gmail.com': new Resend(process.env.RESEND_API_KEY_NATHAN),
+  // Ajoute d'autres admins ici si nécessaire sous le même format :
+  // 'autre_admin@gmail.com': new Resend(process.env.RESEND_API_KEY_AUTRE)
+};
+
 const otpStorage = {};
 
 // Route d'inscription
@@ -36,7 +47,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Route : Envoyer un code OTP uniquement si le compte existe
+// Route : Envoyer un code OTP (Gère intelligemment les Admins et les Clients)
 router.post('/send-otp', async (req, res) => {
   const { email } = req.body;
 
@@ -45,20 +56,34 @@ router.post('/send-otp', async (req, res) => {
   }
 
   try {
-    // Vérification stricte : le compte doit obligatoirement exister
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Cet email ne correspond à aucun compte enregistré." });
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Vérifions d'abord si c'est un Administrateur répertorié
+    const adminResendClient = adminResendClients[cleanEmail];
+
+    let userName = "Administrateur";
+
+    if (!adminResendClient) {
+      // Si ce n'est pas un admin, on vérifie dans la collection des utilisateurs normaux
+      const user = await User.findOne({ email: cleanEmail });
+      if (!user) {
+        return res.status(404).json({ message: "Cet email ne correspond à aucun compte enregistré." });
+      }
+      userName = user.name;
     }
 
+    // Génération du code OTP
     const code = Math.floor(1000 + Math.random() * 9000).toString();
-    otpStorage[email] = code;
+    otpStorage[cleanEmail] = code;
 
-    await resend.emails.send({
+    // Choix du client Resend (La clé perso de l'admin s'il s'agit d'un admin, sinon la clé par défaut)
+    const activeResend = adminResendClient || defaultResend;
+
+    await activeResend.emails.send({
       from: 'onboarding@resend.dev',
-      to: email,
+      to: cleanEmail,
       subject: 'Votre code de sécurité OTP - Mc Molato',
-      text: `Bonjour ${user.name},\n\nVoici votre code de vérification à usage unique : ${code}\n\nIl est valable pour vous connecter à votre espace Mc Molato.`
+      text: `Bonjour ${userName},\n\nVoici votre code de vérification à usage unique : ${code}\n\nIl est valable pour vous connecter à votre espace Mc Molato.`
     });
     
     res.status(200).json({ success: true, message: "Code OTP envoyé avec succès par e-mail." });
@@ -68,7 +93,7 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-// Route : Vérifier le code OTP saisi (Renvoie les infos de l'utilisateur pour le stockage local)
+// Route : Vérifier le code OTP saisi
 router.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
@@ -76,10 +101,22 @@ router.post('/verify-otp', async (req, res) => {
     return res.status(400).json({ message: "Email et code OTP requis." });
   }
 
-  if (otpStorage[email] && otpStorage[email] === otp.trim()) {
-    delete otpStorage[email];
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (otpStorage[cleanEmail] && otpStorage[cleanEmail] === otp.trim()) {
+    delete otpStorage[cleanEmail];
     try {
-      const user = await User.findOne({ email });
+      // Si c'est un admin, on renvoie un profil admin fictif ou validé
+      if (adminResendClients[cleanEmail]) {
+        return res.status(200).json({ 
+          success: true, 
+          message: "Code OTP valide (Admin).", 
+          user: { name: "Administrateur", email: cleanEmail, phone: "" } 
+        });
+      }
+
+      // Sinon, on récupère l'utilisateur normal depuis MongoDB
+      const user = await User.findOne({ email: cleanEmail });
       return res.status(200).json({ 
         success: true, 
         message: "Code OTP valide.", 
