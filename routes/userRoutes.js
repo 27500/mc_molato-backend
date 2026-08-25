@@ -14,7 +14,7 @@ const adminResendClients = {
 
 const otpStorage = {};
 
-// Route d'inscription
+// Route d'inscription client
 router.post('/register', async (req, res) => {
   try {
     const { name, email, phone } = req.body;
@@ -30,21 +30,39 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Route de connexion standard
+// Route de connexion standard client (par e-mail ou nom, sans OTP)
 router.post('/login', async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Compte introuvable." });
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({ message: "Veuillez entrer votre e-mail ou votre nom." });
     }
-    res.status(200).json({ message: "Utilisateur trouvé." });
+
+    const cleanId = identifier.trim().toLowerCase();
+    
+    // Recherche par email ou par nom (insensible à la casse)
+    const user = await User.findOne({
+      $or: [
+        { email: cleanId },
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Compte introuvable. Veuillez vous inscrire." });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Connexion réussie.", 
+      user: { name: user.name, email: user.email, phone: user.phone } 
+    });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur." });
+    res.status(500).json({ message: "Erreur serveur lors de la connexion." });
   }
 });
 
-// Route : Envoyer un code OTP (Gère intelligemment les Admins et les Clients)
+// Route : Envoyer un code OTP (Réservé exclusivement aux Administrateurs et vérifications sécurisées)
 router.post('/send-otp', async (req, res) => {
   const { email } = req.body;
 
@@ -61,7 +79,6 @@ router.post('/send-otp', async (req, res) => {
     let userName = "Administrateur";
 
     if (!adminResendClient) {
-      // Si ce n'est pas un admin, on vérifie dans la collection des utilisateurs normaux
       const user = await User.findOne({ email: cleanEmail });
       if (!user) {
         return res.status(404).json({ message: "Cet email ne correspond à aucun compte enregistré." });
