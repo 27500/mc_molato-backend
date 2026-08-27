@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const User = require('../models/userModel'); 
 const { Resend } = require('resend');
 
@@ -14,42 +15,67 @@ const adminResendClients = {
 
 const otpStorage = {};
 
-// Route d'inscription client
+// Route d'inscription client sécurisée par mot de passe
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
-    let user = await User.findOne({ email });
+    const { name, email, password, phone } = req.body;
+    
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Veuillez remplir tous les champs obligatoires." });
+    }
+
+    let user = await User.findOne({ email: email.trim().toLowerCase() });
     if (user) {
       return res.status(400).json({ message: "Cet utilisateur existe déjà." });
     }
-    user = new User({ name, email, phone, favorites: [], cart: [] });
+
+    // Hachage sécurisé du mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user = new User({ 
+      name, 
+      email: email.trim().toLowerCase(), 
+      password: hashedPassword, 
+      phone: phone || '', 
+      favorites: [], 
+      cart: [] 
+    });
+
     await user.save();
-    res.status(201).json({ name: user.name, email: user.email, phone: user.phone });
+    
+    res.status(201).json({ 
+      success: true,
+      name: user.name, 
+      email: user.email, 
+      phone: user.phone 
+    });
   } catch (error) {
+    console.error("Erreur inscription:", error);
     res.status(500).json({ message: "Erreur serveur lors de l'inscription." });
   }
 });
 
-// Route de connexion standard client (par e-mail ou nom, sans OTP)
+// Route de connexion sécurisée par E-mail et Mot de passe
 router.post('/login', async (req, res) => {
   try {
-    const { identifier } = req.body;
-    if (!identifier) {
-      return res.status(400).json({ message: "Veuillez entrer votre e-mail ou votre nom." });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Veuillez entrer votre e-mail et votre mot de passe." });
     }
 
-    const cleanId = identifier.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
     
-    // Recherche par email ou par nom (insensible à la casse)
-    const user = await User.findOne({
-      $or: [
-        { email: cleanId },
-        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-      ]
-    });
-
+    // Recherche de l'utilisateur par email
+    const user = await User.findOne({ email: cleanEmail });
     if (!user) {
-      return res.status(404).json({ message: "Compte introuvable. Veuillez vous inscrire." });
+      return res.status(404).json({ message: "E-mail ou mot de passe incorrect." });
+    }
+
+    // Vérification du mot de passe haché
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "E-mail ou mot de passe incorrect." });
     }
 
     res.status(200).json({ 
@@ -58,6 +84,7 @@ router.post('/login', async (req, res) => {
       user: { name: user.name, email: user.email, phone: user.phone } 
     });
   } catch (error) {
+    console.error("Erreur connexion:", error);
     res.status(500).json({ message: "Erreur serveur lors de la connexion." });
   }
 });
