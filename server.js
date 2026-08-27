@@ -2,11 +2,22 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
-const Contact = require('./models/contactModel');
 
 dotenv.config();
 connectDB();
+
+// Définition directe du schéma Contact pour éviter les erreurs de chemin
+const contactSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  prenom: { type: String },
+  nom: { type: String },
+  email: { type: String, required: true },
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const Contact = mongoose.model('Contact', contactSchema);
 
 const app = express();
 
