@@ -10,7 +10,8 @@ const defaultResend = new Resend(process.env.RESEND_API_KEY);
 // 2. Dictionnaire des clés API personnelles de chaque Administrateur pour Mc Molato
 const adminResendClients = {
   'blessingmingenge@gmail.com': new Resend(process.env.RESEND_API_KEY_BLESSING),
-  'milungushekinah@gmail.com': new Resend(process.env.RESEND_API_KEY_SHEKINAH)
+  'milungushekinah@gmail.com': new Resend(process.env.RESEND_API_KEY_SHEKINAH),
+  'cadieselipa222@icloud.com': new Resend(process.env.RESEND_API_KEY_CADIE)
 };
 
 const otpStorage = {};
